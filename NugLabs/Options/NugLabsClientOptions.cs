@@ -1,0 +1,36 @@
+namespace NugLabs.Options;
+
+/// <summary>
+/// Configuration for a <see cref="NugLabsClient"/> instance.
+/// </summary>
+public sealed class NugLabsClientOptions
+{
+    /// <summary>
+    /// Gets or sets the base URL used for background sync and manual resync.
+    /// Defaults to <c>https://strains.nuglabs.co</c>.
+    /// </summary>
+    public string ApiBaseUrl { get; set; } = "https://strains.nuglabs.co";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the in-memory cache is enabled.
+    /// Defaults to <c>true</c>.
+    /// </summary>
+    public bool CacheInMemory { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the directory used for persisted dataset overrides.
+    /// Defaults to the local application data folder.
+    /// </summary>
+    public string? StorageDirectory { get; set; }
+
+    /// <summary>
+    /// Gets or sets the background sync interval.
+    /// Defaults to 12 hours.
+    /// </summary>
+    public TimeSpan SyncInterval { get; set; } = TimeSpan.FromHours(12);
+
+    /// <summary>
+    /// Gets or sets the optional HTTP client used for background sync and manual resync.
+    /// </summary>
+    public HttpClient? HttpClient { get; set; }
+}
