@@ -9,9 +9,9 @@
     <Authors>NugLabs</Authors>
     <Company>NugLabs</Company>
     <Description>Local-first SDK for the NugLabs strain API.</Description>
-    <RepositoryUrl>https://github.com/nuglabs/nuglabs-dotnet</RepositoryUrl>
+    <RepositoryUrl>https://github.com/nuglabs/nuget</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>nuglabs;strains;sdk;local-first;cannabis</PackageTags>
+    <PackageTags>nuglabs;strains;sdk;local-first;cannabis;marijuana;weed</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeSymbols>true</IncludeSymbols>

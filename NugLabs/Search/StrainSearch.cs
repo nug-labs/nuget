@@ -16,14 +16,26 @@ public static class StrainSearch
     public static Strain? GetStrain(IEnumerable<Strain> strains, string name)
     {
         var query = Normalize(name);
+        var queryNoSpaces = NormalizeNoSpaces(name);
         if (string.IsNullOrWhiteSpace(query))
         {
             return null;
         }
 
         return strains.FirstOrDefault(strain =>
-            Normalize(strain.Name) == query ||
-            strain.Akas.Any(alias => Normalize(alias) == query));
+        {
+            var strainName = Normalize(strain.Name);
+            if (strainName == query || NormalizeNoSpaces(strainName) == queryNoSpaces)
+            {
+                return true;
+            }
+
+            return strain.Akas.Any(alias =>
+            {
+                var normalizedAlias = Normalize(alias);
+                return normalizedAlias == query || NormalizeNoSpaces(normalizedAlias) == queryNoSpaces;
+            });
+        });
     }
 
     /// <summary>
@@ -35,6 +47,7 @@ public static class StrainSearch
     public static IReadOnlyList<Strain> SearchStrains(IEnumerable<Strain> strains, string query)
     {
         var normalized = Normalize(query);
+        var normalizedNoSpaces = NormalizeNoSpaces(query);
         if (string.IsNullOrWhiteSpace(normalized))
         {
             return strains.ToList();
@@ -42,10 +55,27 @@ public static class StrainSearch
 
         return strains
             .Where(strain =>
-                Normalize(strain.Name).Contains(normalized, StringComparison.Ordinal) ||
-                strain.Akas.Any(alias => Normalize(alias).Contains(normalized, StringComparison.Ordinal)))
+            {
+                var strainName = Normalize(strain.Name);
+                if (strainName.Contains(normalized, StringComparison.Ordinal) ||
+                    NormalizeNoSpaces(strainName).Contains(normalizedNoSpaces, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                return strain.Akas.Any(alias =>
+                {
+                    var normalizedAlias = Normalize(alias);
+                    return normalizedAlias.Contains(normalized, StringComparison.Ordinal) ||
+                           NormalizeNoSpaces(normalizedAlias)
+                               .Contains(normalizedNoSpaces, StringComparison.Ordinal);
+                });
+            })
             .ToList();
     }
 
     private static string Normalize(string value) => value.Trim().ToLowerInvariant();
+
+    private static string NormalizeNoSpaces(string value) =>
+        new(Normalize(value).Where(c => !char.IsWhiteSpace(c)).ToArray());
 }
