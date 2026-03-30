@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>NugLabs</PackageId>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Authors>NugLabs</Authors>
     <Company>NugLabs</Company>
     <Description>Local-first SDK for the NugLabs strain API.</Description>
@@ -23,12 +23,20 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="wasm/README.md" Pack="true" PackagePath="wasm/" />
     <EmbeddedResource Include="NugLabs/dataset.json" />
+    <EmbeddedResource Include="NugLabs/rules.json" />
     <Content Include="NugLabs/dataset.json" Pack="true" PackagePath="contentFiles/any/any/NugLabs/" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="NugLabs/rules.json" Pack="true" PackagePath="contentFiles/any/any/NugLabs/" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="wasm/nuglabs_core.wasm" Pack="true" PackagePath="contentFiles/any/any/NugLabs/wasm/" CopyToOutputDirectory="PreserveNewest" Condition="Exists('wasm/nuglabs_core.wasm')" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="NugLabs.Tests/**/*.cs" />
     <None Remove="NugLabs.Tests/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Wasmtime" Version="34.0.2" />
   </ItemGroup>
 </Project>

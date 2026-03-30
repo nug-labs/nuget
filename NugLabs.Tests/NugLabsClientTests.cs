@@ -39,13 +39,22 @@ public sealed class NugLabsClientTests
     public async Task ForceResyncAsync_UpdatesMemoryAndDisk()
     {
         var storageDirectory = CreateStorageDirectory();
-        using var httpClient = new HttpClient(new StubHttpMessageHandler("""
+        using var httpClient = new HttpClient(new StubHttpMessageHandler(
+            datasetPayload: """
             [
               {
                 "name": "Test Strain",
                 "akas": ["TS"]
               }
             ]
+            """,
+            rulesPayload: """
+            {
+              "version": 1,
+              "trim": true,
+              "lowercase": true,
+              "steps": []
+            }
             """));
 
         await using var client = new NugLabsClient(new NugLabsClientOptions
@@ -57,8 +66,9 @@ public sealed class NugLabsClientTests
         });
 
         var result = await client.ForceResyncAsync();
-        Assert.Equal(1, result.Count);
-        Assert.Equal("remote", result.Source);
+        Assert.Equal(1, result.Dataset.Count);
+        Assert.Equal("remote", result.Dataset.Source);
+        Assert.Equal("remote", result.Rules.Source);
 
         var byAlias = await client.GetStrainAsync("ts");
         Assert.NotNull(byAlias);
@@ -112,10 +122,15 @@ public sealed class NugLabsClientTests
         return path;
     }
 
-    private sealed class StubHttpMessageHandler(string payload) : HttpMessageHandler
+    private sealed class StubHttpMessageHandler(string datasetPayload, string rulesPayload) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            var payload = request.RequestUri?.ToString() switch
+            {
+                var uri when uri == NugLabsApi.RulesUrl => rulesPayload,
+                _ => datasetPayload
+            };
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")

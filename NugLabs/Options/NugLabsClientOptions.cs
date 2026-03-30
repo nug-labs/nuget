@@ -6,12 +6,6 @@ namespace NugLabs.Options;
 public sealed class NugLabsClientOptions
 {
     /// <summary>
-    /// Gets or sets the base URL used for background sync and manual resync.
-    /// Defaults to <c>https://strains.nuglabs.co</c>.
-    /// </summary>
-    public string ApiBaseUrl { get; set; } = "https://strains.nuglabs.co";
-
-    /// <summary>
     /// Gets or sets a value indicating whether the in-memory cache is enabled.
     /// Defaults to <c>true</c>.
     /// </summary>
@@ -33,4 +27,16 @@ public sealed class NugLabsClientOptions
     /// Gets or sets the optional HTTP client used for background sync and manual resync.
     /// </summary>
     public HttpClient? HttpClient { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Rust WASM core is used for lookups/search.
+    /// Defaults to <c>true</c>.
+    /// </summary>
+    public bool UseWasm { get; set; } = true;
+
+    /// <summary>
+    /// Optional explicit path to <c>nuglabs_core.wasm</c>. When omitted, common package/runtime
+    /// locations are searched automatically.
+    /// </summary>
+    public string? WasmPath { get; set; }
 }

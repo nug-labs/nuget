@@ -14,9 +14,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Clone sdk-core
+        run: git clone https://github.com/nug-labs/sdk-core.git ../core
+
+      - name: Build Rust WASM core
+        run: cargo build --release --target wasm32-unknown-unknown
+        working-directory: ../core
+
+      - name: Copy WASM artifact
+        run: mkdir -p wasm && cp ../core/target/wasm32-unknown-unknown/release/nuglabs_core.wasm wasm/
 
       - name: Restore
         run: dotnet restore NugLabs.csproj

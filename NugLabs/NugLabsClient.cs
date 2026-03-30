@@ -1,8 +1,8 @@
 using NugLabs.Models;
 using NugLabs.Options;
-using NugLabs.Search;
 using NugLabs.Storage;
 using NugLabs.Sync;
+using NugLabs.Wasm;
 
 namespace NugLabs;
 
@@ -11,13 +11,12 @@ namespace NugLabs;
 /// </summary>
 public sealed class NugLabsClient : IDisposable, IAsyncDisposable
 {
-    private readonly object _gate = new();
-    private readonly bool _cacheInMemory;
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
     private readonly LocalStore _store;
     private readonly SyncService _syncService;
-    private List<Strain> _memoryCache;
+    private readonly object _wasmGate = new();
+    private readonly WasmBridge _wasm;
 
     /// <summary>
     /// Creates a new client instance from a configuration object.
@@ -25,7 +24,6 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     /// <param name="options">
     /// Optional runtime configuration.
     /// <list type="bullet">
-    /// <item><description><c>ApiBaseUrl</c>: defaults to <c>https://strains.nuglabs.co</c></description></item>
     /// <item><description><c>CacheInMemory</c>: defaults to <c>true</c></description></item>
     /// <item><description><c>StorageDirectory</c>: optional local persistence directory</description></item>
     /// <item><description><c>SyncInterval</c>: defaults to 12 hours</description></item>
@@ -36,9 +34,10 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
         : this(
             httpClient: options.HttpClient,
             cacheInMemory: options.CacheInMemory,
-            apiBaseUrl: options.ApiBaseUrl,
             syncInterval: options.SyncInterval,
-            storageDirectory: options.StorageDirectory)
+            storageDirectory: options.StorageDirectory,
+            wasmPath: options.WasmPath,
+            useWasm: options.UseWasm)
     {
     }
 
@@ -46,27 +45,37 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     /// Creates a new client instance.
     /// </summary>
     /// <param name="httpClient">Optional HTTP client used for background sync and manual resync.</param>
-    /// <param name="cacheInMemory">Enables the in-memory read cache when <c>true</c>.</param>
-    /// <param name="apiBaseUrl">Base API URL used for sync requests.</param>
     /// <param name="syncInterval">Background sync interval. Defaults to 12 hours.</param>
     /// <param name="storageDirectory">Optional directory used for persisted dataset overrides.</param>
+    /// <param name="wasmPath">Optional explicit path to <c>nuglabs_core.wasm</c>.</param>
+    /// <param name="useWasm">When false, construction fails because WASM runtime is required.</param>
     public NugLabsClient(
         HttpClient? httpClient = null,
         bool cacheInMemory = true,
-        string apiBaseUrl = "https://strains.nuglabs.co",
         TimeSpan? syncInterval = null,
-        string? storageDirectory = null)
+        string? storageDirectory = null,
+        string? wasmPath = null,
+        bool useWasm = true)
     {
-        _cacheInMemory = cacheInMemory;
+        _ = cacheInMemory;
         _httpClient = httpClient ?? new HttpClient();
         _ownsHttpClient = httpClient is null;
         _store = new LocalStore(storageDirectory);
-        _memoryCache = _store.LoadInitialData().ToList();
+        var dataset = _store.LoadInitialData();
+        var rulesJson = _store.LoadCurrentRulesJson();
+
+        if (!useWasm)
+        {
+            throw new InvalidOperationException("Managed search path was removed; set UseWasm=true and provide a valid WASM binary.");
+        }
+        _wasm = WasmBridge.Create(wasmPath);
+        _wasm.LoadRules(rulesJson);
+        _wasm.LoadDataset(System.Text.Json.JsonSerializer.Serialize(dataset));
         _syncService = new SyncService(
             _httpClient,
             _store,
             UpdateDataset,
-            apiBaseUrl,
+            UpdateRules,
             syncInterval ?? TimeSpan.FromHours(12));
 
         _syncService.Start();
@@ -85,7 +94,10 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     public Task<Strain?> GetStrainAsync(string name, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(StrainSearch.GetStrain(GetDatasetSnapshot(), name));
+        lock (_wasmGate)
+        {
+            return Task.FromResult(_wasm.GetStrain(name));
+        }
     }
 
     /// <summary>
@@ -100,7 +112,10 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     public Task<IReadOnlyList<Strain>> GetAllStrainsAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(GetDatasetSnapshot());
+        lock (_wasmGate)
+        {
+            return Task.FromResult(_wasm.GetAllStrains());
+        }
     }
 
     /// <summary>
@@ -114,7 +129,10 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     /// </returns>
     public IReadOnlyList<Strain> SearchStrains(string query)
     {
-        return StrainSearch.SearchStrains(GetDatasetSnapshot(), query);
+        lock (_wasmGate)
+        {
+            return _wasm.SearchStrains(query);
+        }
     }
 
     /// <summary>
@@ -125,6 +143,22 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     public async Task<NugLabsSyncResult> ForceResyncAsync(CancellationToken cancellationToken = default)
     {
         return await _syncService.ForceResyncAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Fetches and applies only the dataset artifact from remote API.
+    /// </summary>
+    public async Task<NugLabsArtifactSyncResult> ForceResyncDatasetAsync(CancellationToken cancellationToken = default)
+    {
+        return await _syncService.ForceResyncDatasetAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Fetches and applies only the normalization rules artifact from remote API.
+    /// </summary>
+    public async Task<NugLabsArtifactSyncResult> ForceResyncRulesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _syncService.ForceResyncRulesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -141,6 +175,7 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _syncService.DisposeAsync().ConfigureAwait(false);
+        _wasm.Dispose();
 
         if (_ownsHttpClient)
         {
@@ -148,29 +183,20 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
         }
     }
 
-    private IReadOnlyList<Strain> GetDatasetSnapshot()
-    {
-        if (_cacheInMemory)
-        {
-            lock (_gate)
-            {
-                return _memoryCache.ToList();
-            }
-        }
-
-        return _store.LoadCurrentData();
-    }
-
     private void UpdateDataset(IReadOnlyList<Strain> strains)
     {
-        if (!_cacheInMemory)
+        var json = System.Text.Json.JsonSerializer.Serialize(strains);
+        lock (_wasmGate)
         {
-            return;
+            _wasm.LoadDataset(json);
         }
+    }
 
-        lock (_gate)
+    private void UpdateRules(string rulesJson)
+    {
+        lock (_wasmGate)
         {
-            _memoryCache = strains.ToList();
+            _wasm.LoadRules(rulesJson);
         }
     }
 }
