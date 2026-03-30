@@ -24,20 +24,18 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     /// <param name="options">
     /// Optional runtime configuration.
     /// <list type="bullet">
-    /// <item><description><c>CacheInMemory</c>: defaults to <c>true</c></description></item>
     /// <item><description><c>StorageDirectory</c>: optional local persistence directory</description></item>
     /// <item><description><c>SyncInterval</c>: defaults to 12 hours</description></item>
     /// <item><description><c>HttpClient</c>: optional custom HTTP client for sync</description></item>
+    /// <item><description><c>WasmPath</c>: optional explicit path to <c>nuglabs_core.wasm</c></description></item>
     /// </list>
     /// </param>
     public NugLabsClient(NugLabsClientOptions options)
         : this(
             httpClient: options.HttpClient,
-            cacheInMemory: options.CacheInMemory,
             syncInterval: options.SyncInterval,
             storageDirectory: options.StorageDirectory,
-            wasmPath: options.WasmPath,
-            useWasm: options.UseWasm)
+            wasmPath: options.WasmPath)
     {
     }
 
@@ -48,26 +46,18 @@ public sealed class NugLabsClient : IDisposable, IAsyncDisposable
     /// <param name="syncInterval">Background sync interval. Defaults to 12 hours.</param>
     /// <param name="storageDirectory">Optional directory used for persisted dataset overrides.</param>
     /// <param name="wasmPath">Optional explicit path to <c>nuglabs_core.wasm</c>.</param>
-    /// <param name="useWasm">When false, construction fails because WASM runtime is required.</param>
     public NugLabsClient(
         HttpClient? httpClient = null,
-        bool cacheInMemory = true,
         TimeSpan? syncInterval = null,
         string? storageDirectory = null,
-        string? wasmPath = null,
-        bool useWasm = true)
+        string? wasmPath = null)
     {
-        _ = cacheInMemory;
         _httpClient = httpClient ?? new HttpClient();
         _ownsHttpClient = httpClient is null;
         _store = new LocalStore(storageDirectory);
         var dataset = _store.LoadInitialData();
         var rulesJson = _store.LoadCurrentRulesJson();
 
-        if (!useWasm)
-        {
-            throw new InvalidOperationException("Managed search path was removed; set UseWasm=true and provide a valid WASM binary.");
-        }
         _wasm = WasmBridge.Create(wasmPath);
         _wasm.LoadRules(rulesJson);
         _wasm.LoadDataset(System.Text.Json.JsonSerializer.Serialize(dataset));

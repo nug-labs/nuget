@@ -2,7 +2,7 @@
 
 Local-first SDK for `https://strains.nuglabs.co`.
 
-Current NuGet package version: `1.3.0`.
+Current NuGet package version: `1.3.1`.
 
 ## Design
 
@@ -45,7 +45,6 @@ using NugLabs.Options;
 
 var client = new NugLabsClient(new NugLabsClientOptions
 {
-    CacheInMemory = true,
     StorageDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "NugLabs"),
@@ -58,10 +57,10 @@ Sync uses canonical URLs from `NugLabsApi.StrainsDatasetUrl` and `NugLabsApi.Rul
 
 ## Constructor Options
 
-- `CacheInMemory`: enables the in-memory read cache
 - `StorageDirectory`: local persistence directory
 - `SyncInterval`: background sync interval
 - `HttpClient`: custom HTTP client for sync
+- `WasmPath`: optional explicit path to `nuglabs_core.wasm`
 
 ## Return Shapes
 

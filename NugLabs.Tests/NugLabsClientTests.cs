@@ -12,7 +12,6 @@ public sealed class NugLabsClientTests
     public async Task GetStrainAsync_MatchesNameCaseInsensitively()
     {
         await using var client = new NugLabsClient(
-            cacheInMemory: true,
             syncInterval: TimeSpan.FromDays(1),
             storageDirectory: CreateStorageDirectory());
 
@@ -26,7 +25,6 @@ public sealed class NugLabsClientTests
     public async Task SearchStrains_FindsPartialMatches()
     {
         await using var client = new NugLabsClient(
-            cacheInMemory: true,
             syncInterval: TimeSpan.FromDays(1),
             storageDirectory: CreateStorageDirectory());
 
@@ -60,7 +58,6 @@ public sealed class NugLabsClientTests
         await using var client = new NugLabsClient(new NugLabsClientOptions
         {
             HttpClient = httpClient,
-            CacheInMemory = true,
             SyncInterval = TimeSpan.FromDays(1),
             StorageDirectory = storageDirectory
         });
@@ -86,7 +83,6 @@ public sealed class NugLabsClientTests
 
         await using var client = new NugLabsClient(
             httpClient: httpClient,
-            cacheInMemory: true,
             syncInterval: TimeSpan.FromDays(1),
             storageDirectory: storageDirectory);
 
@@ -102,7 +98,6 @@ public sealed class NugLabsClientTests
     {
         await using var client = new NugLabsClient(new NugLabsClientOptions
         {
-            CacheInMemory = true,
             SyncInterval = TimeSpan.FromDays(1),
             StorageDirectory = CreateStorageDirectory()
         });
